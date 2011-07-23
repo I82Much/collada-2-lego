@@ -8,7 +8,13 @@ for building out of LEGO bricks, particularly in the [LDraw file format][].
 Why?  Well, I thought it'd be fun, as I love LEGOs and thought it'd be cool to automatically
 generate a lego version of 3d models.
 
-The COLLADA library I am using is [pycollada].
+The COLLADA library I am using is [pycollada].  You must install it and its dependencies first.  
+If you have easy_install setup, that is as easy as
+
+	easy_install lxml
+
+[lxml][] http://lxml.de/installation.html
+
 
 
 [COLLADA format]:http://en.wikipedia.org/wiki/COLLADA
