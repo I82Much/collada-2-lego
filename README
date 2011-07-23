@@ -9,12 +9,10 @@ Why?  Well, I thought it'd be fun, as I love LEGOs and thought it'd be cool to a
 generate a lego version of 3d models.
 
 The COLLADA library I am using is [pycollada].  You must install it and its dependencies first.  
-If you have easy_install setup, that is as easy as
+This can be tricky, especially on a mac for the lxml dependency.  See [this StackOverflow question](http://stackoverflow.com/questions/1277124/how-do-you-install-lxml-on-os-x-leopard-without-using-macports-or-fink) for more help.
 
-	easy_install lxml
-
-[lxml][] http://lxml.de/installation.html
-
+I had to find libxml2-2.7.3.tar.gz at http://code.google.com/p/autosetup1/downloads/detail?name=libxml2-2.7.3.tar.gz&can=2&q=
+libxslt-1.1.24.tar.gz http://code.google.com/p/savory/downloads/detail?name=libxslt-1.1.24.tar.gz&can=2&q=
 
 
 [COLLADA format]:http://en.wikipedia.org/wiki/COLLADA
