@@ -1,0 +1,16 @@
+2011-07-23
+
+Author: Nicholas Dunn
+
+The purpose of this project is to convert 3d assets in [COLLADA format][] into a format suitable
+for building out of LEGO bricks, particularly in the [LDraw file format][].
+
+Why?  Well, I thought it'd be fun, as I love LEGOs and thought it'd be cool to automatically
+generate a lego version of 3d models.
+
+The COLLADA library I am using is [pycollada].
+
+
+[COLLADA format]:http://en.wikipedia.org/wiki/COLLADA
+[LDraw file format]:http://www.ldraw.org/Article218.html
+[pycollada]:http://collada.in4lines.com/
