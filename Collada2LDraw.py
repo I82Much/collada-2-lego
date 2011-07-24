@@ -5,13 +5,17 @@ import sys
 import getopt
 
 def parse_model(path_to_model):
-  """ Attempt to load the given collada model 
-  
-  """
+  """ Attempt to load the given collada model  """
   mesh = collada.Collada(path_to_model)
   
   print mesh
 
+
+def convert_2d_image_to_bricks(image):
+  """
+  image is a 2d array where pixel[x][y] is
+  1 if black, else 0
+  """
 
 
 def main(argv):

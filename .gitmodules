@@ -1,3 +1,6 @@
 [submodule "collada"]
 	path = collada
 	url = git://github.com/pycollada/pycollada.git
+[submodule "pymorph"]
+	path = pymorph
+	url = git://github.com/luispedro/pymorph.git
