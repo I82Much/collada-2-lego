@@ -1,5 +1,9 @@
 #!/opt/local/bin/python
 
+import PIL
+import pymorph
+import numpy
+
 import collada
 import sys
 import getopt
@@ -11,11 +15,28 @@ def parse_model(path_to_model):
   print mesh
 
 
-def convert_2d_image_to_bricks(image):
+def calculate_slice(image, width=1, fill=False):
   """
-  image is a 2d array where pixel[x][y] is
-  1 if black, else 0
+  image is a numpy binary array where element i is
+  
+  
+  uses a greedy blobbing algorithm to assign the
+  biggest pieces possible
   """
+  piece_sizes = [
+    # most common brick
+    (4,2)
+    (3,2)
+    (2,2)
+    
+    (4,1)
+    (3,1)
+    (2,1)
+    (1,1)
+  ]
+  
+  
+
 
 
 def main(argv):
