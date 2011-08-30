@@ -1,3 +1,4 @@
+import sys
 import numpy
 import Image
 
@@ -35,8 +36,8 @@ def get_pieces(array):
   height, width = array.shape
   for row in range(height):
     for column in range(width):
+      # if array[row][column] == False:
       if array[row][column] < 10:
-      # if array[row][column] == 0:
         piece_map[(row,column)] = (piece, VERTICAL)
   return piece_map
   
@@ -47,11 +48,12 @@ def get_ldraw(piece_map):
     piece_string = pieces_map[piece]
     
     # we need to translate from image coordinates into ldraw coordinates
+    image_x, image_y = location
     
-    # x axis in the image matches z axis when viewed overhead in ldraw 
-    x_offset = location[1] * BRICK_WIDTH
+    x_offset = image_y * BRICK_WIDTH
     y_offset = 0
-    z_offset = location[0] * BRICK_WIDTH
+    # x axis in the image matches z axis when viewed overhead in ldraw 
+    z_offset = -image_x * BRICK_WIDTH
     
     
     the_piece = Piece(Black, Vector(x_offset, y_offset, z_offset), Identity(), piece_string)
@@ -59,14 +61,22 @@ def get_ldraw(piece_map):
   return pieces
 
 def main():
-  circle = Image.open("models/circle.jpg")
-  array = numpy.array(circle)
+  args = sys.argv[1:]
+  
+  print args
+  
+  image_file = args[0]
+  # convert to black and white,
+  image = Image.open(image_file).resize((64,64)).convert(mode="L")
+  array = numpy.array(image)
   pieces = get_pieces(array)
   ldraw_pieces = get_ldraw(pieces)
   
-  output_file = open("circle.ldr", "w")
+  output_file = open(image_file + ".ldr", "w")
   output_file.writelines( "\n".join( repr(x) for x in ldraw_pieces) )
   output_file.close()
 
-if __name__ == '__main__':
-  main()
+# if __name__ == '__main__':
+#   main()
+
+main()
