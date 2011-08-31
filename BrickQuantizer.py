@@ -5,7 +5,7 @@ import Image
 from ldraw.colours import *
 from ldraw.pieces import Group, Piece, Vector
 from ldraw.figure import *
-
+from ldraw.geometry import *
 
 BRICK_WIDTH = 20
 BRICK_HEIGHT = 24
@@ -23,8 +23,15 @@ pieces_map = {
   (2,2) : "3003",
 }
 
+
 HORIZONTAL = 0
 VERTICAL = 1
+
+OUT_OF_BOUNDS = -1
+EMPTY = 0
+TO_FILL = 1
+ALREADY_FILLED = 2
+
 
 def get_pieces(array):
   
@@ -33,19 +40,92 @@ def get_pieces(array):
   # wherever there is a *black* pixel, put a 1x1 piece
   piece = (1,1)
   piece_map = {}
-  height, width = array.shape
+  # numpy arrays are in column major order
+  width, height = array.shape
+  
+  # create a new 2d array of same dimensions as the image
+  
+  new_grid = numpy.zeros(array.shape, dtype=numpy.uint8)
+  
   for row in range(height):
     for column in range(width):
       # if array[row][column] == False:
-      if array[row][column] < 10:
-        piece_map[(row,column)] = (piece, VERTICAL)
+      if array[column][row] < 10:
+        new_grid[column][row] = TO_FILL
+        # piece_map[(row,column)] = (piece, VERTICAL)
+        
+        
+  # at this point, we have a 2d array with 0s in empty spots, and 1 where
+  # we need a piece to fill it.  Use a simple greedy strategy where we work
+  # left to right, top to bottom
+  for row in range(height):
+    for column in range(width):
+      if new_grid[column][row] == TO_FILL:
+        # trying to fill this; go in order from largest to smallest piece until
+        # we find one that fits; check both horizontally and vertically.
+        for orientation in [HORIZONTAL, VERTICAL]:
+          # ordered from biggest to smallest
+          for piece in reversed(sorted(pieces_map)):
+            if piece_fits(new_grid, piece, orientation, row, column):
+              piece_map[(row,column)] = (piece, orientation)
+              # mark up the grid to indicate that the spaces this piece goes in have
+              # been filled.
+              
+              for (row_, column_) in get_locations(piece, orientation, row, column):
+                new_grid[column_][row_] = ALREADY_FILLED
+              break
+  
+  print piece_map
   return piece_map
+
+
+# grid is a numpy array
+def piece_fits(grid, piece, orientation, row, column):
+  # these are all the grid squares the brick will take up
+  locations = get_locations(piece, orientation, row, column)
+  num_columns, num_rows = grid.shape
+  
+  valid_space = lambda(r, c): (0 <= r < num_rows) and (0 <= c < num_columns)
+  space_must_be_filled = lambda (r, c): grid[r][c] == TO_FILL
+  for _row, _column in locations:
+    if not valid_space( (_row, _column) ):
+      return False
+    elif not space_must_be_filled( (_row, _column) ):
+      return False
+  return True
+  
+  
+  # return all ( map(space_must_be_filled, locations ) )
+  
+def get_locations(piece, orientation, row, column):
+  """
+  Given a piece in the format (width, length), an orientation (vertical or horizontal),
+  and the location of the upper left hand corner of the piece, returns all the
+  (row, column) locations that the piece will take up.
+  """
+  # pieces are given in form width, length
+  width, length = piece
+  row_span = 0
+  col_span = 0
+  if orientation == VERTICAL:
+    row_span = length
+    col_span = width
+  else:
+    row_span = width
+    col_span = length
+  
+  return [ (row + y, column + x) for x in range(col_span) for y in range(row_span) ]
+    
+    
+    
   
 def get_ldraw(piece_map):
   pieces = []
   # map from location to piece
+  i = 0
   for location, (piece, orientation) in piece_map.items():
     piece_string = pieces_map[piece]
+    color = Black
     
     # we need to translate from image coordinates into ldraw coordinates
     image_x, image_y = location
@@ -53,11 +133,32 @@ def get_ldraw(piece_map):
     x_offset = image_y * BRICK_WIDTH
     y_offset = 0
     # x axis in the image matches z axis when viewed overhead in ldraw 
-    z_offset = -image_x * BRICK_WIDTH
+    z_offset = image_x * BRICK_WIDTH
     
     
-    the_piece = Piece(Black, Vector(x_offset, y_offset, z_offset), Identity(), piece_string)
+    length, width = piece
+    if orientation == HORIZONTAL:
+      # z in world space = x in image space
+      # x in world space = y in image space
+      z_offset += (width-1.0) / 2 * BRICK_WIDTH
+      x_offset += (length-1.0) / 2 * BRICK_WIDTH
+    else:
+      z_offset += (length-1.0) / 2 * BRICK_WIDTH
+      x_offset += (width-1.0) / 2 * BRICK_WIDTH
+    
+    the_piece = Piece(color, Vector(x_offset, y_offset, z_offset), Identity(), piece_string)
     pieces.append(the_piece)
+    
+    
+  # by default, pieces are oriented left to right (horizontal) when viewed from above
+  # furthermore, pieces are centered.  Need to translate to get upper left corner where it belongs
+  
+  # two_by_four_offset_z = -1.5 * BRICK_WIDTH
+  # two_by_four_offset_x = -.5 * BRICK_WIDTH
+         # red_piece = Piece(Red, Vector(two_by_four_offset_x, -24, two_by_four_offset_z), Identity(), "3001")
+  # blue_piece = Piece(Red, Vector(0, -48, 0), Identity(), "3001")#Piece(Blue, Vector(two_by_four_offset_x, -20, two_by_four_offset_z), Identity().rotate(90, YAxis), "3001")
+  # pieces.append(red_piece)
+  # pieces.append(blue_piece)
   return pieces
 
 def main():
