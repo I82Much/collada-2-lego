@@ -10,73 +10,93 @@ from ldraw.geometry import *
 BRICK_WIDTH = 20
 BRICK_HEIGHT = 24
 
+def enum(**enums):
+  return type('Enum', (), enums)
+
+Orientation = enum(HORIZONTAL = 0, VERTICAL = 1)
+GridState = enum(EMPTY = 255, TO_FILL = 1, ALREADY_FILLED = 3)
 
 # common lego shape sizes
 pieces_map = {
-  (1,4) : "3010",
-  (1,3) : "3622",
-  (1,2) : "3004",
+  # (1,4) : "3010",
+  # (1,3) : "3622",
+  # (1,2) : "3004",
   (1,1) : "3005",
   
   (2,4) : "3001",
-  (2,3) : "3002",
+  # (2,3) : "3002",
   (2,2) : "3003",
 }
 
 
-HORIZONTAL = 0
-VERTICAL = 1
-
-OUT_OF_BOUNDS = -1
-EMPTY = 0
-TO_FILL = 1
-ALREADY_FILLED = 2
-
-
 def get_pieces(array):
   
-  # step 1: get it working with just 1x1 pieces
-  
-  # wherever there is a *black* pixel, put a 1x1 piece
-  piece = (1,1)
   piece_map = {}
   # numpy arrays are in column major order
   width, height = array.shape
   
   # create a new 2d array of same dimensions as the image
-  
   new_grid = numpy.zeros(array.shape, dtype=numpy.uint8)
   
+  num_black = 0
   for row in range(height):
     for column in range(width):
       # if array[row][column] == False:
       if array[column][row] < 10:
-        new_grid[column][row] = TO_FILL
-        # piece_map[(row,column)] = (piece, VERTICAL)
+        new_grid[column][row] = GridState.TO_FILL
+        num_black += 1
+      else:
+        new_grid[column][row] = GridState.EMPTY
+  
+  print new_grid
         
-        
+  num_missing_pieces = 0
   # at this point, we have a 2d array with 0s in empty spots, and 1 where
   # we need a piece to fill it.  Use a simple greedy strategy where we work
   # left to right, top to bottom
   for row in range(height):
     for column in range(width):
-      if new_grid[column][row] == TO_FILL:
-        # trying to fill this; go in order from largest to smallest piece until
-        # we find one that fits; check both horizontally and vertically.
-        for orientation in [HORIZONTAL, VERTICAL]:
-          # ordered from biggest to smallest
-          for piece in reversed(sorted(pieces_map)):
-            if piece_fits(new_grid, piece, orientation, row, column):
-              piece_map[(row,column)] = (piece, orientation)
-              # mark up the grid to indicate that the spaces this piece goes in have
-              # been filled.
-              
-              for (row_, column_) in get_locations(piece, orientation, row, column):
-                new_grid[column_][row_] = ALREADY_FILLED
-              break
+      
+      # print (row, column)
+      found_piece = False
+      if new_grid[column][row] == GridState.TO_FILL:
+
+        # ordered from biggest to smallest
+        available_pieces = reversed(sorted(pieces_map))
+        available_orientations = [Orientation.HORIZONTAL, Orientation.VERTICAL]
+        
+        for piece, orientation in zip(available_pieces, available_orientations):
+          if piece_fits(new_grid, piece, orientation, row, column):
+            piece_map[(row,column)] = (piece, orientation)
+            # mark up the grid to indicate that the spaces this piece goes in have
+            # been filled.
+            for (row_, column_) in get_locations(piece, orientation, row, column):
+              # print "assinging ", row_, column_, " to be filled."
+              new_grid[column_][row_] = GridState.ALREADY_FILLED
+              found_piece = True
+            break
+          else:
+            print "piece didn't fit with orientation %d at row %d column %d" %(orientation, row, column)
+            print new_grid[column][row]
+            print get_locations(piece, orientation, row, column)
+        
+        # end of loop          
+        if not found_piece:
+          print "Failed to find a piece for row %d col %d" %(row, column)
+          num_missing_pieces += 1
   
-  print piece_map
+  print num_missing_pieces
+  
+  
+  # Image.fromarray(array).show()
+  # Image.fromarray(new_grid).show()
+  
+  print "Num black squares: ", num_black
+  print len(piece_map)
+  
+  # print piece_map
   return piece_map
+
 
 
 # grid is a numpy array
@@ -86,11 +106,13 @@ def piece_fits(grid, piece, orientation, row, column):
   num_columns, num_rows = grid.shape
   
   valid_space = lambda(r, c): (0 <= r < num_rows) and (0 <= c < num_columns)
-  space_must_be_filled = lambda (r, c): grid[r][c] == TO_FILL
+  space_must_be_filled = lambda (r, c): grid[c][r] == GridState.TO_FILL
   for _row, _column in locations:
     if not valid_space( (_row, _column) ):
+      print "not a valid space."
       return False
     elif not space_must_be_filled( (_row, _column) ):
+      print "expected would be filled, was ", grid[_column][_row]
       return False
   return True
   
@@ -107,7 +129,7 @@ def get_locations(piece, orientation, row, column):
   width, length = piece
   row_span = 0
   col_span = 0
-  if orientation == VERTICAL:
+  if orientation == Orientation.VERTICAL:
     row_span = length
     col_span = width
   else:
@@ -137,7 +159,7 @@ def get_ldraw(piece_map):
     
     
     length, width = piece
-    if orientation == HORIZONTAL:
+    if orientation == Orientation.HORIZONTAL:
       # z in world space = x in image space
       # x in world space = y in image space
       z_offset += (width-1.0) / 2 * BRICK_WIDTH
@@ -166,10 +188,15 @@ def main():
   
   print args
   
-  image_file = args[0]
-  # convert to black and white,
-  image = Image.open(image_file).resize((64,64)).convert(mode="L")
-  array = numpy.array(image)
+  # image_file = args[0]
+  #   # convert to black and white,
+  #   image = Image.open(image_file).resize((20,20)).convert(mode="L")
+  #   array = numpy.array(image)
+  #   
+  
+  image_file = "black"
+  array = numpy.identity(4) * 255#(16,16))
+  
   pieces = get_pieces(array)
   ldraw_pieces = get_ldraw(pieces)
   
