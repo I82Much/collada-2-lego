@@ -8,11 +8,42 @@ import collada
 import sys
 import getopt
 
+
+
+
+def calculate_bounding_box(collada):
+  min_x, min_y, min_z, max_x, max_y, max_z = [0] * 6
+  
+  for geom in collada.scene.objects('geometry'):
+    for prim in geom.primitives():
+      for tri in prim.triangles():
+        vertices = tri.vertices
+        for vertex in vertices:
+          # unpack the vertex
+          x, y, z = vertex
+          min_x = min(min_x, x)
+          max_x = max(max_x, x)
+          min_y = min(min_y, x)
+          max_y = max(max_y, x)
+          min_z = min(min_z, x)
+          max_z = max(max_z, x)  
+
+  return [(min_x,max_x), (min_y, max_y), (min_z, max_z)]
+
+
+
+
 def parse_model(path_to_model):
   """ Attempt to load the given collada model  """
   mesh = collada.Collada(path_to_model)
+  return mesh
   
-  print mesh
+  # for geom in mesh.scene.objects('geometry'):
+  #     for prim in geom.primitives():
+  #       for tri in prim.triangles():
+  #         print tri.vertices
+  #   
+  #   print mesh
 
 
 def calculate_slice(image, width=1, fill=False):
@@ -23,21 +54,7 @@ def calculate_slice(image, width=1, fill=False):
   uses a greedy blobbing algorithm to assign the
   biggest pieces possible
   """
-  piece_sizes = [
-    # most common brick
-    (4,2)
-    (3,2)
-    (2,2)
-    
-    (4,1)
-    (3,1)
-    (2,1)
-    (1,1)
-  ]
-  
-  
-
-
+  pass
 
 def main(argv):
   """
