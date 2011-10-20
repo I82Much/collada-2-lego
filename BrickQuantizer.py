@@ -148,8 +148,7 @@ def get_ldraw(piece_map):
   print piece_map
   pieces = []
   # map from location to piece
-  i = 0
-  for location, (piece, orientation) in piece_map.items():
+  for location, (piece, orientation) in sorted(piece_map.items()):
     piece_string = pieces_map[piece]
     color = Black
     
