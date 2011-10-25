@@ -10,6 +10,15 @@ import collada
 import sys
 import getopt
 
+# import Collada2LDraw
+# import numpy
+# import Image
+# import collada
+# import geo
+# mesh = collada.Collada("../../models/sphere.dae")
+# Collada2LDraw.save_images(Collada2LDraw.create_images(mesh), "with_multiple_edges")
+# reload Collada2LDraw
+
 # pycollada - http://collada.in4lines.com/
 # http://stackoverflow.com/questions/5793642/collada-files-viewer
 
@@ -57,29 +66,54 @@ def create_image_of_intersection(mesh, bounding_box, plane):
     
     # shift so that min x becomes 0.
     
-    # draw line between p1 and p2
-    if plane.separates(p1, p2):
-      x1 = int(tri.vertices[0][0] - min_x)
-      y1 = int(tri.vertices[0][1] - min_y)
-      x2 = int(tri.vertices[1][0] - min_x)
-      y2 = int(tri.vertices[1][1] - min_y)
-      
-    # draw line between p1 and p3  
-    elif plane.separates(p1, p3):
-      x1 = int(tri.vertices[0][0] - min_x)
-      y1 = int(tri.vertices[0][1] - min_y)
-      x2 = int(tri.vertices[2][0] - min_x)
-      y2 = int(tri.vertices[2][1] - min_y)
-      
-    # draw line between p2 and p3
-    elif plane.separates(p2, p3):
+    # hack: drawing between the line that's not connected.
+    
+    # draw line between p2, p3
+    if plane.separates(p1, p2) and plane.separates(p1, p3):
       x1 = int(tri.vertices[1][0] - min_x)
       y1 = int(tri.vertices[1][1] - min_y)
       x2 = int(tri.vertices[2][0] - min_x)
       y2 = int(tri.vertices[2][1] - min_y)
+      img_draw.line([(x1, y1), (x2, y2)], width=2, fill=0)
+
+    # draw line between p1 and p3
+    if plane.separates(p1, p2) and plane.separates(p2, p3):
+      x1 = int(tri.vertices[0][0] - min_x)
+      y1 = int(tri.vertices[0][1] - min_y)
+      x2 = int(tri.vertices[2][0] - min_x)
+      y2 = int(tri.vertices[2][1] - min_y)
+      img_draw.line([(x1, y1), (x2, y2)], width=2, fill=0)
+      
+    # draw line between p1, p2
+    if plane.separates(p1, p3) and plane.separates(p2, p3):
+      x1 = int(tri.vertices[0][0] - min_x)
+      y1 = int(tri.vertices[0][1] - min_y)
+      x2 = int(tri.vertices[1][0] - min_x)
+      y2 = int(tri.vertices[1][1] - min_y)
+      img_draw.line([(x1, y1), (x2, y2)], width=2, fill=0)
     
-    print "drawing line between (%d, %d) (%d, %d)" %(x1, y1, x2, y2)
-    img_draw.line([(x1, y1), (x2, y2)], width=2, fill=0)
+    # # draw line between p1 and p2
+    #     if plane.separates(p1, p2):
+    #       x1 = int(tri.vertices[0][0] - min_x)
+    #       y1 = int(tri.vertices[0][1] - min_y)
+    #       x2 = int(tri.vertices[1][0] - min_x)
+    #       y2 = int(tri.vertices[1][1] - min_y)
+    #       img_draw.line([(x1, y1), (x2, y2)], width=2, fill=0)
+    #     # draw line between p1 and p3  
+    #     if plane.separates(p1, p3):
+    #       x1 = int(tri.vertices[0][0] - min_x)
+    #       y1 = int(tri.vertices[0][1] - min_y)
+    #       x2 = int(tri.vertices[2][0] - min_x)
+    #       y2 = int(tri.vertices[2][1] - min_y)
+    #       img_draw.line([(x1, y1), (x2, y2)], width=2, fill=0)
+    #     # draw line between p2 and p3
+    #     if plane.separates(p2, p3):
+    #       x1 = int(tri.vertices[1][0] - min_x)
+    #       y1 = int(tri.vertices[1][1] - min_y)
+    #       x2 = int(tri.vertices[2][0] - min_x)
+    #       y2 = int(tri.vertices[2][1] - min_y)
+    #       img_draw.line([(x1, y1), (x2, y2)], width=2, fill=0)
+    
   return img.convert("RGB")
   
 
