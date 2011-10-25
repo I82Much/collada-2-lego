@@ -1,9 +1,11 @@
 #!/opt/local/bin/python
 
+import geo
 import PIL
 import pymorph
 import numpy
 import Image
+import ImageDraw
 import collada
 import sys
 import getopt
@@ -30,43 +32,80 @@ def calculate_bounding_box(mesh):
   return [(min_x,max_x), (min_y, max_y), (min_z, max_z)]
 
 
-
-def create_images(mesh):
-  [(min_x,max_x), (min_y, max_y), (min_z, max_z)] = calculate_bounding_box(mesh)
+def create_image_of_intersection(mesh, bounding_box, plane):
+  [(min_x,max_x), (min_y, max_y), (min_z, max_z)] = bounding_box
   width = int(max_x - min_x)
   height = int(max_y - min_y)
   
-  arrays = []
+  #start it all white
+  array = numpy.ones((width,height),dtype='int8')
+  for i in range(width):
+    for j in range(height):
+      array[i][j] = 255
   
-  # slice through the model at various z levels
-  for z in range(min_z, max_z, 10):
-    #start it all white
-    array = numpy.ones((width,height),dtype='int8')
-    for i in range(width):
-      for j in range(height):
-        array[i][j] = 255
-  
-    # xz plane
-    plane = geo.Plane(geo.Point(0,1,z), geo.Point(1,0,z), geo.Point(0,0,z))
-    intersecting_triangles = find_triangles_which_intersect(mesh, plane)
-  
-    for triangle in intersecting_triangles:
-      # this is not right, but let's just try to get something working
+  img = Image.fromarray(array)
+  img_draw = ImageDraw.Draw(img)
+
+  intersecting_triangles = find_triangles_which_intersect(mesh, plane)
+
+  for tri in intersecting_triangles:
+    # find the two points which are on opposite sides - draw a line between them
+    p1, p2, p3 = [geo.Point(vertex) for vertex in tri.vertices]
+    x1 = x2 = y1 = y2 = 0
     
-      # project all 3 points down 
-      for vertex in triangle.vertices:
-        x, y, z = vertex[0], vertex[1], vertex[2]
+    # print tri.vertices
+    
+    # shift so that min x becomes 0.
+    
+    # draw line between p1 and p2
+    if plane.separates(p1, p2):
+      x1 = int(tri.vertices[0][0] - min_x)
+      y1 = int(tri.vertices[0][1] - min_y)
+      x2 = int(tri.vertices[1][0] - min_x)
+      y2 = int(tri.vertices[1][1] - min_y)
       
-        # ignore z component
-        array[int(x + min_x)][int(y + min_y)] = 0
+    # draw line between p1 and p3  
+    elif plane.separates(p1, p3):
+      x1 = int(tri.vertices[0][0] - min_x)
+      y1 = int(tri.vertices[0][1] - min_y)
+      x2 = int(tri.vertices[2][0] - min_x)
+      y2 = int(tri.vertices[2][1] - min_y)
+      
+    # draw line between p2 and p3
+    elif plane.separates(p2, p3):
+      x1 = int(tri.vertices[1][0] - min_x)
+      y1 = int(tri.vertices[1][1] - min_y)
+      x2 = int(tri.vertices[2][0] - min_x)
+      y2 = int(tri.vertices[2][1] - min_y)
     
-    arrays.append(array)
+    print "drawing line between (%d, %d) (%d, %d)" %(x1, y1, x2, y2)
+    img_draw.line([(x1, y1), (x2, y2)], width=2, fill=0)
+  return img.convert("RGB")
   
-  return [Image.fromarray(array).convert("RGB") for array in arrays]
+
+def create_images(mesh):
+  [(min_x,max_x), (min_y, max_y), (min_z, max_z)] = calculate_bounding_box(mesh)
+  arrays = []
+  images = []
+  # slice through the model at various z levels
+  for z in range(min_z, max_z, 10):# xz plane
+    plane = geo.Plane(geo.Point(0,1,z), geo.Point(1,0,z), geo.Point(0,0,z))
+    images.append(create_image_of_intersection(mesh, [(min_x,max_x), (min_y, max_y), (min_z, max_z)], plane))
+  return images
+  # this is not right, but let's just try to get something working
+  # project all 3 points down 
+  # for vertex in triangle.vertices:
+  #         x, y, z = vertex[0], vertex[1], vertex[2]
+  #       
+  #         # ignore z component
+  #         array[int(x + min_x)][int(y + min_y)] = 0
   
-def save_images(image_list):
+  
+  # return [Image.fromarray(array).convert("RGB") for array in arrays]
+  
+def save_images(image_list, prefix="circle"):
   for (i, img) in enumerate(image_list):
-    file_handle = open("circle_%d.png" %i, "wb")
+    file_handle = open("%s_%d.png" %(prefix, i), "wb")
     img.save(file_handle)
     
 
