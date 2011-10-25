@@ -9,16 +9,16 @@ import sys
 import getopt
 
 
+# http://stackoverflow.com/questions/5793642/collada-files-viewer
 
-
-def calculate_bounding_box(collada):
-  min_x, min_y, min_z, max_x, max_y, max_z = [0] * 6
+def calculate_bounding_box(mesh):
+  min_x = min_y = min_z = 100000000
+  max_x = max_y = max_z = -100000000
   
-  for geom in collada.scene.objects('geometry'):
+  for geom in mesh.scene.objects('geometry'):
     for prim in geom.primitives():
       for tri in prim.triangles():
-        vertices = tri.vertices
-        for vertex in vertices:
+        for vertex in tri.vertices:
           # unpack the vertex
           x, y, z = vertex
           min_x = min(min_x, x)
@@ -26,11 +26,60 @@ def calculate_bounding_box(collada):
           min_y = min(min_y, x)
           max_y = max(max_y, x)
           min_z = min(min_z, x)
-          max_z = max(max_z, x)  
-
+          max_z = max(max_z, x)
   return [(min_x,max_x), (min_y, max_y), (min_z, max_z)]
 
-
+def triangle_spans_plane(triangle):
+  vertices = triangle.vertices
+  
+  # z component is < 0 for one and > 0 for another
+  for i, j in [(0,1), (0,2), (1,2)]:
+    # one negative, one positive
+    if vertices[i][2] * vertices[j][2] < 0:
+      return True
+  return False
+  
+#http://softsurfer.com/Archive/algorithm_0104/algorithm_0104.htm
+def find_triangles_which_intersect(mesh, plane):
+  intersecting_triangles = []
+  
+  # for each triangle, check whether any of the three line segments intersects the plane
+  for geom in mesh.scene.objects('geometry'):
+    for prim in geom.primitives():
+      for tri in prim.triangles():
+        p1, p2, p3 = [geo.Point(vertex) for vertex in tri.vertices]
+        
+        pairs = ( (p1, p2), (p1, p3), (p2, p3) )
+        for pair in pairs:
+          # if the plane separates the two points, then the line segment between them
+          # intersects with the plane
+          intersects = plane.separates(pair[0], pair[1])
+          coplanar = geo.dot(pair[0].r - plane.r, plane.n) * geo.dot(pair[1].r - plane.r, plane.n) == 0
+          if intersects or coplanar:
+            intersecting_triangles.append(tri)
+            break
+  return intersecting_triangles
+  
+  # http://www.gamedev.net/topic/104528-triangleplane-intersection-points/
+  # The idea is to test each and every edge (line) of the triangle to see if it collides with the plane. There are three lines:
+  #   P0-P1
+  #   P1-P2
+  #   P2-P0
+  # 
+  #   For example, with P0-P1, any point on the line can be represented as a linear interpolation between P0-P1. Hence,
+  # 
+  #   P = P0 + t * (P1 - P0)
+  # 
+  #   If 0 < t < 1, then P is somewhere between P1 and P0. This is a vectorial equation, so there are three components. We can substitute them in the plane equation:
+  # 
+  #   Ax + By + Cz + D = 0
+  #   A(P0.x + t * (P1.x - P0.x)) + B(P0.y + t * ... = 0
+  # 
+  #   Isolate t. Once you have it, you know that, if t>1 or t<0, the edge doesn''t intersect the plane. Else, you can find the intersection point by replacing t in the original equation.
+  # 
+  #   Hope this helps,
+  # 
+  pass
 
 
 def parse_model(path_to_model):
