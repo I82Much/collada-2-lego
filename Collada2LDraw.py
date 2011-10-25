@@ -3,12 +3,12 @@
 import PIL
 import pymorph
 import numpy
-
+import Image
 import collada
 import sys
 import getopt
 
-
+# pycollada - http://collada.in4lines.com/
 # http://stackoverflow.com/questions/5793642/collada-files-viewer
 
 def calculate_bounding_box(mesh):
@@ -29,19 +29,51 @@ def calculate_bounding_box(mesh):
           max_z = max(max_z, x)
   return [(min_x,max_x), (min_y, max_y), (min_z, max_z)]
 
-def triangle_spans_plane(triangle):
-  vertices = triangle.vertices
+
+
+def create_images(mesh):
+  [(min_x,max_x), (min_y, max_y), (min_z, max_z)] = calculate_bounding_box(mesh)
+  width = int(max_x - min_x)
+  height = int(max_y - min_y)
   
-  # z component is < 0 for one and > 0 for another
-  for i, j in [(0,1), (0,2), (1,2)]:
-    # one negative, one positive
-    if vertices[i][2] * vertices[j][2] < 0:
-      return True
-  return False
+  arrays = []
   
+  # slice through the model at various z levels
+  for z in range(min_z, max_z, 10):
+    #start it all white
+    array = numpy.ones((width,height),dtype='int8')
+    for i in range(width):
+      for j in range(height):
+        array[i][j] = 255
+  
+    # xz plane
+    plane = geo.Plane(geo.Point(0,1,z), geo.Point(1,0,z), geo.Point(0,0,z))
+    intersecting_triangles = find_triangles_which_intersect(mesh, plane)
+  
+    for triangle in intersecting_triangles:
+      # this is not right, but let's just try to get something working
+    
+      # project all 3 points down 
+      for vertex in triangle.vertices:
+        x, y, z = vertex[0], vertex[1], vertex[2]
+      
+        # ignore z component
+        array[int(x + min_x)][int(y + min_y)] = 0
+    
+    arrays.append(array)
+  
+  return [Image.fromarray(array).convert("RGB") for array in arrays]
+  
+def save_images(image_list):
+  for (i, img) in enumerate(image_list):
+    file_handle = open("circle_%d.png" %i, "wb")
+    img.save(file_handle)
+    
+
 #http://softsurfer.com/Archive/algorithm_0104/algorithm_0104.htm
 def find_triangles_which_intersect(mesh, plane):
   intersecting_triangles = []
+  
   
   # for each triangle, check whether any of the three line segments intersects the plane
   for geom in mesh.scene.objects('geometry'):
