@@ -1,5 +1,6 @@
 #!/opt/local/bin/python
 
+import random
 import geo
 import PIL
 import pymorph
@@ -41,6 +42,65 @@ def calculate_bounding_box(mesh):
   return [(min_x,max_x), (min_y, max_y), (min_z, max_z)]
 
 
+def get_point_of_intersection(plane, line):
+  # http://en.wikipedia.org/wiki/Line-plane_intersection
+  # a point on the plane
+  p0 = plane.points()[0]
+
+  # normal vector of plane
+  n = normal(plane)
+  
+  # point on the line
+  l0, l1 = line.points()
+  l_vector = subtract(l1, l0)
+
+  # p0 - l0 dot n = numerator
+  numerator = geo.dot(subtract(p0, l0), n)
+  denominator = geo.dot(n, l_vector)
+  
+  # print "numerator: %f" %numerator
+  #   print "denominator: %f" %denominator
+  
+  # denominator is 0, numerator is nonzero --> no intersection
+  if abs(denominator) < 1E-20 and numerator != 0:
+    return []
+  # both are zero, parallel - intersect at every point along line segment
+  elif denominator == 0 and numerator == 0:
+    # todo(ndunn): how to handle this case
+    return []
+  else:
+    d = numerator / denominator
+
+    # point of intersection = d*l + l_0
+    x = l_vector[0] * d + l0.coordinates()[0]
+    y = l_vector[1] * d + l0.coordinates()[1]
+    z = l_vector[2] * d + l0.coordinates()[2]
+    
+    return geo.Point(x,y,z)
+
+
+    
+def scale(vector, d):
+  return (vector[0] * d, vector[1] * d, vector[2] * d)    
+
+def normal(plane):
+  line = plane.normal()
+  points = line.points()
+  return subtract(points[1], points[0])
+    
+def subtract(p1, p2):
+  """ subtracts two points (p1-p2) to obtain a vector between the two """
+  x1,y1,z1 = p1.coordinates()
+  x2,y2,z2 = p2.coordinates()
+  
+  dx = x1 - x2
+  dy = y1 - y2
+  dz = z1 - z2
+  
+  return (dx, dy, dz)
+
+  
+
 def create_image_of_intersection(mesh, bounding_box, plane):
   [(min_x,max_x), (min_y, max_y), (min_z, max_z)] = bounding_box
   width = int(max_x - min_x)
@@ -52,7 +112,7 @@ def create_image_of_intersection(mesh, bounding_box, plane):
     for j in range(height):
       array[i][j] = 255
   
-  img = Image.fromarray(array)
+  img = Image.fromarray(array).convert("RGB")
   img_draw = ImageDraw.Draw(img)
 
   intersecting_triangles = find_triangles_which_intersect(mesh, plane)
@@ -60,9 +120,9 @@ def create_image_of_intersection(mesh, bounding_box, plane):
   for tri in intersecting_triangles:
     # find the two points which are on opposite sides - draw a line between them
     p1, p2, p3 = [geo.Point(vertex) for vertex in tri.vertices]
-    x1 = x2 = y1 = y2 = 0
     
-    # print tri.vertices
+    color = "rgb(%d,%d,%d)" %(random.randint(0, 255), random.randint(0,255), random.randint(0,255))
+    
     
     # shift so that min x becomes 0.
     
@@ -70,27 +130,55 @@ def create_image_of_intersection(mesh, bounding_box, plane):
     
     # draw line between p2, p3
     if plane.separates(p1, p2) and plane.separates(p1, p3):
-      x1 = int(tri.vertices[1][0] - min_x)
-      y1 = int(tri.vertices[1][1] - min_y)
-      x2 = int(tri.vertices[2][0] - min_x)
-      y2 = int(tri.vertices[2][1] - min_y)
-      img_draw.line([(x1, y1), (x2, y2)], width=2, fill=0)
+      intersection1 = get_point_of_intersection(plane, geo.Line(p1,p2))
+      intersection2 = get_point_of_intersection(plane, geo.Line(p1,p3))
+      
+      x1 = int(intersection1.coordinates()[0] - min_x)
+      y1 = int(intersection1.coordinates()[1] - min_y)
+      x2 = int(intersection2.coordinates()[0] - min_x)
+      y2 = int(intersection2.coordinates()[1] - min_y)
+      
+      # get intersection point between p1, p2
+      
+      # x1 = int(tri.vertices[1][0] - min_x)
+      #       y1 = int(tri.vertices[1][1] - min_y)
+      #       x2 = int(tri.vertices[2][0] - min_x)
+      #       y2 = int(tri.vertices[2][1] - min_y)
+      img_draw.line([(x1, y1), (x2, y2)], width=2, fill=color)
 
     # draw line between p1 and p3
-    if plane.separates(p1, p2) and plane.separates(p2, p3):
-      x1 = int(tri.vertices[0][0] - min_x)
-      y1 = int(tri.vertices[0][1] - min_y)
-      x2 = int(tri.vertices[2][0] - min_x)
-      y2 = int(tri.vertices[2][1] - min_y)
-      img_draw.line([(x1, y1), (x2, y2)], width=2, fill=0)
+    elif plane.separates(p1, p2) and plane.separates(p2, p3):
+      intersection1 = get_point_of_intersection(plane, geo.Line(p1,p2))
+      intersection2 = get_point_of_intersection(plane, geo.Line(p2,p3))
+      
+      x1 = int(intersection1.coordinates()[0] - min_x)
+      y1 = int(intersection1.coordinates()[1] - min_y)
+      x2 = int(intersection2.coordinates()[0] - min_x)
+      y2 = int(intersection2.coordinates()[1] - min_y)
+      
+      img_draw.line([(x1, y1), (x2, y2)], width=2, fill=color)
+      # x1 = int(tri.vertices[0][0] - min_x)
+      #       y1 = int(tri.vertices[0][1] - min_y)
+      #       x2 = int(tri.vertices[2][0] - min_x)
+      #       y2 = int(tri.vertices[2][1] - min_y)
+      #       img_draw.line([(x1, y1), (x2, y2)], width=2, fill=0)
+      pass
       
     # draw line between p1, p2
-    if plane.separates(p1, p3) and plane.separates(p2, p3):
-      x1 = int(tri.vertices[0][0] - min_x)
-      y1 = int(tri.vertices[0][1] - min_y)
-      x2 = int(tri.vertices[1][0] - min_x)
-      y2 = int(tri.vertices[1][1] - min_y)
-      img_draw.line([(x1, y1), (x2, y2)], width=2, fill=0)
+    elif plane.separates(p1, p3) and plane.separates(p2, p3):
+      intersection1 = get_point_of_intersection(plane, geo.Line(p1,p3))
+      intersection2 = get_point_of_intersection(plane, geo.Line(p2,p3))
+      
+      x1 = int(intersection1.coordinates()[0] - min_x)
+      y1 = int(intersection1.coordinates()[1] - min_y)
+      x2 = int(intersection2.coordinates()[0] - min_x)
+      y2 = int(intersection2.coordinates()[1] - min_y)
+      
+      # x1 = int(tri.vertices[0][0] - min_x)
+      #       y1 = int(tri.vertices[0][1] - min_y)
+      #       x2 = int(tri.vertices[1][0] - min_x)
+      #       y2 = int(tri.vertices[1][1] - min_y)
+      img_draw.line([(x1, y1), (x2, y2)], width=2, fill=color)
     
     # # draw line between p1 and p2
     #     if plane.separates(p1, p2):
@@ -114,15 +202,16 @@ def create_image_of_intersection(mesh, bounding_box, plane):
     #       y2 = int(tri.vertices[2][1] - min_y)
     #       img_draw.line([(x1, y1), (x2, y2)], width=2, fill=0)
     
-  return img.convert("RGB")
+  return img
   
 
-def create_images(mesh):
+def create_images(mesh, step_size=10):
   [(min_x,max_x), (min_y, max_y), (min_z, max_z)] = calculate_bounding_box(mesh)
   arrays = []
   images = []
   # slice through the model at various z levels
-  for z in range(min_z, max_z, 10):# xz plane
+  for z in range(min_z, max_z+1, step_size):# xz plane
+    print z
     plane = geo.Plane(geo.Point(0,1,z), geo.Point(1,0,z), geo.Point(0,0,z))
     images.append(create_image_of_intersection(mesh, [(min_x,max_x), (min_y, max_y), (min_z, max_z)], plane))
   return images
@@ -164,41 +253,11 @@ def find_triangles_which_intersect(mesh, plane):
             intersecting_triangles.append(tri)
             break
   return intersecting_triangles
-  
-  # http://www.gamedev.net/topic/104528-triangleplane-intersection-points/
-  # The idea is to test each and every edge (line) of the triangle to see if it collides with the plane. There are three lines:
-  #   P0-P1
-  #   P1-P2
-  #   P2-P0
-  # 
-  #   For example, with P0-P1, any point on the line can be represented as a linear interpolation between P0-P1. Hence,
-  # 
-  #   P = P0 + t * (P1 - P0)
-  # 
-  #   If 0 < t < 1, then P is somewhere between P1 and P0. This is a vectorial equation, so there are three components. We can substitute them in the plane equation:
-  # 
-  #   Ax + By + Cz + D = 0
-  #   A(P0.x + t * (P1.x - P0.x)) + B(P0.y + t * ... = 0
-  # 
-  #   Isolate t. Once you have it, you know that, if t>1 or t<0, the edge doesn''t intersect the plane. Else, you can find the intersection point by replacing t in the original equation.
-  # 
-  #   Hope this helps,
-  # 
-  pass
-
 
 def parse_model(path_to_model):
   """ Attempt to load the given collada model  """
   mesh = collada.Collada(path_to_model)
   return mesh
-  
-  # for geom in mesh.scene.objects('geometry'):
-  #     for prim in geom.primitives():
-  #       for tri in prim.triangles():
-  #         print tri.vertices
-  #   
-  #   print mesh
-
 
 def calculate_slice(image, width=1, fill=False):
   """
