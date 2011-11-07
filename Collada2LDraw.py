@@ -11,6 +11,10 @@ import collada
 import sys
 import getopt
 
+
+# TODO(ndunn): Handle collinear points (the sphere illustrates this well)
+# TODO(ndunn): Handle the color of the geometry - barycentric coordinates.
+
 # import Collada2LDraw
 # import numpy
 # import Image
@@ -29,16 +33,20 @@ def calculate_bounding_box(mesh):
   
   for geom in mesh.scene.objects('geometry'):
     for prim in geom.primitives():
-      for tri in prim.triangles():
-        for vertex in tri.vertices:
-          # unpack the vertex
-          x, y, z = vertex
-          min_x = min(min_x, x)
-          max_x = max(max_x, x)
-          min_y = min(min_y, x)
-          max_y = max(max_y, x)
-          min_z = min(min_z, x)
-          max_z = max(max_z, x)
+      try:
+        for tri in prim.triangles():
+          for vertex in tri.vertices:
+            # unpack the vertex
+            x, y, z = vertex
+            min_x = min(min_x, x)
+            max_x = max(max_x, x)
+            min_y = min(min_y, x)
+            max_y = max(max_y, x)
+            min_z = min(min_z, x)
+            max_z = max(max_z, x)
+      except AttributeError:
+        # not a triangle set
+        pass
   return [(min_x,max_x), (min_y, max_y), (min_z, max_z)]
 
 
@@ -116,6 +124,8 @@ def create_image_of_intersection(mesh, bounding_box, plane):
   img_draw = ImageDraw.Draw(img)
 
   intersecting_triangles = find_triangles_which_intersect(mesh, plane)
+
+  print len(intersecting_triangles)
 
   for tri in intersecting_triangles:
     # find the two points which are on opposite sides - draw a line between them
@@ -205,12 +215,12 @@ def create_image_of_intersection(mesh, bounding_box, plane):
   return img
   
 
-def create_images(mesh, step_size=10):
+def create_images(mesh, num_slices=10):
   [(min_x,max_x), (min_y, max_y), (min_z, max_z)] = calculate_bounding_box(mesh)
   arrays = []
   images = []
   # slice through the model at various z levels
-  for z in range(min_z, max_z+1, step_size):# xz plane
+  for z in range(min_z, max_z+1, (max_z - min_z) / num_slices):# xz plane
     print z
     plane = geo.Plane(geo.Point(0,1,z), geo.Point(1,0,z), geo.Point(0,0,z))
     images.append(create_image_of_intersection(mesh, [(min_x,max_x), (min_y, max_y), (min_z, max_z)], plane))
@@ -240,18 +250,22 @@ def find_triangles_which_intersect(mesh, plane):
   # for each triangle, check whether any of the three line segments intersects the plane
   for geom in mesh.scene.objects('geometry'):
     for prim in geom.primitives():
-      for tri in prim.triangles():
-        p1, p2, p3 = [geo.Point(vertex) for vertex in tri.vertices]
+      try:
+        for tri in prim.triangles():
+          p1, p2, p3 = [geo.Point(vertex) for vertex in tri.vertices]
         
-        pairs = ( (p1, p2), (p1, p3), (p2, p3) )
-        for pair in pairs:
-          # if the plane separates the two points, then the line segment between them
-          # intersects with the plane
-          intersects = plane.separates(pair[0], pair[1])
-          coplanar = geo.dot(pair[0].r - plane.r, plane.n) * geo.dot(pair[1].r - plane.r, plane.n) == 0
-          if intersects or coplanar:
-            intersecting_triangles.append(tri)
-            break
+          pairs = ( (p1, p2), (p1, p3), (p2, p3) )
+          for pair in pairs:
+            # if the plane separates the two points, then the line segment between them
+            # intersects with the plane
+            intersects = plane.separates(pair[0], pair[1])
+            coplanar = geo.dot(pair[0].r - plane.r, plane.n) * geo.dot(pair[1].r - plane.r, plane.n) == 0
+            if intersects or coplanar:
+              intersecting_triangles.append(tri)
+              break
+      except AttributeError:
+        # not a triangle set
+        pass
   return intersecting_triangles
 
 def parse_model(path_to_model):
